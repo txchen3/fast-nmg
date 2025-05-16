@@ -1,12 +1,9 @@
-//
-// Created by 付聪 on 2017/6/21.
-//
-
 #include <efanna2e/index_nsg.h>
 #include <efanna2e/util.h>
 #include <chrono>
 #include <string>
 #include <set>
+#include <algorithm>
 
 void load_data(char* filename, float*& data, unsigned& num,
                unsigned& dim) {  // load data with sift10K pattern
@@ -31,20 +28,21 @@ void load_data(char* filename, float*& data, unsigned& num,
   in.close();
 }
 
-void load_id(char* filename, float*& data, unsigned& id,
-  unsigned& dim, unsigned offset) {  // load data with sift10K pattern
+void load_id(char* filename, float*& data,
+  unsigned& dim, unsigned offset, unsigned total_num) {  // load data with sift10K pattern
   std::ifstream in(filename, std::ios::binary);
   if (!in.is_open()) {
     std::cout << "open file error" << std::endl;
     exit(-1);
   }
   in.read((char*)&dim, 4);
-  data = new float[(size_t)dim];
+  data = new float[(size_t)total_num * (size_t)dim];
 
-  in.seekg(0, std::ios::beg);
-  in.seekg(4 + 4 * (dim + 1) * (id + offset), std::ios::cur);
-  in.read((char*)(data), dim * 4);
-
+  in.seekg(4 * (dim + 1) * offset, std::ios::beg);
+  for (size_t i = 0; i < total_num; i++) {
+    in.seekg(4, std::ios::cur);
+    in.read((char*)(data + i * dim), dim * 4);
+  }
   in.close();
 }
 
@@ -112,15 +110,16 @@ std::vector<std::vector<int> > load_ground_truth(const char* filename) {
     return res;
 }
 
-void Delete_id(char* filename, unsigned& move_id){
+void Delete_id(char* filename, unsigned& start_id, unsigned& end_id){
   std::fstream file(filename, 
   std::ios::binary |  // 二进制模式
   std::ios::in  |     // 可读
   std::ios::out);     // 可写
-  std::streampos pos = move_id * sizeof(unsigned);
+  std::streampos pos = start_id * sizeof(unsigned);
   file.seekp(pos);
   unsigned zero = 0;
-  file.write(reinterpret_cast<char*>(&zero), sizeof(unsigned));
+  for(unsigned i = start_id; i < end_id; ++i)
+    file.write(reinterpret_cast<char*>(&zero), sizeof(unsigned));
   // std::cout << "成功标记节点" << move_id << "为删除" << std::endl;
   file.close();
 }
@@ -141,14 +140,15 @@ int main(int argc, char** argv) {
     }
   }
   else if(strcmp(argv[1], "delete") == 0){
-    if (argc != 4) {
+    if (argc != 5) {
       std::cout << argv[0]
-                << " <delete> <in_graph_file> <id>"
+                << " <delete> <in_graph_file> <start_id> <end_id>"
                 << std::endl;
       exit(-1);
     }
-    unsigned move_id = (unsigned)atoi(argv[3]);
-    Delete_id(argv[2], move_id);
+    unsigned start_id = (unsigned)atoi(argv[3]);
+    unsigned end_id = (unsigned)atoi(argv[4]);
+    Delete_id(argv[2], start_id, end_id);
     return 0;
   }
   else if(strcmp(argv[1], "write_disk") == 0){
@@ -166,6 +166,7 @@ int main(int argc, char** argv) {
     efanna2e::IndexNSG index(dim, points_num, efanna2e::L2, nullptr);
     index.Load_part_point(argv[2], argv[3]);
     index.Write_disk(R, argv[2], argv[3], aerfa);
+    index.com_degree();
     return 0;
   }
   else if(strcmp(argv[1], "global_del") == 0){
@@ -233,14 +234,13 @@ int main(int argc, char** argv) {
   else if(strcmp(argv[1], "add_node") == 0){
     if (argc != 11) {
       std::cout << argv[0]
-                << " <add_node> <nsg_path> <data_file> <id> <R> <aerfa> <dim> <offset> <k_num> <in_graph>"
+                << " <add_node> <nsg_path> <data_file> <total_num> <R> <aerfa> <dim> <offset> <k_num> <in_graph>"
                 << std::endl;
       exit(-1);
     }
     
-    float* query_load = NULL;
     unsigned query_dim;
-    unsigned add_id = (unsigned)atoi(argv[4]);
+    unsigned total_num = (unsigned)atoi(argv[4]);
     unsigned R = (unsigned)atoi(argv[5]);
     float aerfa = (float)atof(argv[6]);
     unsigned dim = (unsigned)atoi(argv[7]);
@@ -256,18 +256,25 @@ int main(int argc, char** argv) {
     std::chrono::duration<double> diff = e - s;
     std::cout << "索引加载用时：" << diff.count() <<"\n";
     unsigned L = 200;
-    std::vector<unsigned> res(L);
     int com_num = 0;
 
     efanna2e::Parameters paras;
     paras.Set<unsigned>("L_search", L);
     paras.Set<unsigned>("P_search", L);
     paras.Set<unsigned>("k_num", 0);
-    for(unsigned i = 0; i < add_id; ++i){
-      load_id(argv[3], query_load, i, query_dim, offset);
-      index.SearchWithOptGraph(query_load, L, paras, res.data(), com_num);
-      index.prune_result(query_load, R, aerfa, res, argv[2], i, add_id, k_num);
+    index.my_realloc(total_num + points_num);
+    float* query_load = NULL;
+    load_id(argv[3], query_load, query_dim, offset, total_num);
+    std::vector<std::mutex> locks(total_num + points_num);
+    for(unsigned i = 0; i < total_num; i++){
+      std::vector<unsigned> res(L);
+      index.SearchWithOptGraph(query_load + i * dim, L, paras, res.data(), com_num);
+      index.prune_result(query_load + i * dim, R, aerfa, res, points_num + i, i, total_num, k_num);
     }
+
+    std::cout << "筛选结束" << std::endl;
+    // index.new_reverse(total_num, R, aerfa);
+    index.com_degree();
     index.save_opt(argv[2], argv[10]);
     return 0;
   }

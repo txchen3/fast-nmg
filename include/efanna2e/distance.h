@@ -124,12 +124,10 @@ namespace efanna2e{
 #endif
 #endif
 #endif
-            if (std::isnan(result) || std::isinf(result)) {
-              result = 0.0f;
-              for (unsigned i = 0; i < size; ++i) {
-                  float diff = a[i] - b[i];
-                  result += diff * diff;
-              }
+            result = 0.0f;
+            for (unsigned i = 0; i < size; ++i) {
+                float diff = a[i] - b[i];
+                result += diff * diff;
             }
             return result;
         }
