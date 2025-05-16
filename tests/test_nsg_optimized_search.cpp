@@ -170,9 +170,9 @@ int main(int argc, char** argv) {
     return 0;
   }
   else if(strcmp(argv[1], "global_del") == 0){
-    if (argc != 9) {
+    if (argc != 8) {
       std::cout << argv[0]
-                << " <global_del> <nsg_path> <id> <true> <dim> <R> <α> <re_graph_path>"
+                << " <global_del> <nsg_path> <id> <true> <dim> <R> <α>"
                 << std::endl;
       exit(-1);
     }
@@ -190,25 +190,7 @@ int main(int argc, char** argv) {
     paras.Set<unsigned>("L", L);
     paras.Set<unsigned>("C", L + R);
     paras.Set<unsigned>("aerfa", aerfa);
-    index.Search_write_disk(del_id, argv[2], argv[8], paras);
-    return 0;
-  }
-  else if(strcmp(argv[1], "reserve_graph") == 0){
-    if (argc != 6) {
-      std::cout << argv[0]
-                << " <reserve_graph> <nsg_path> <re_graph_path> <dim> <R>"
-                << std::endl;
-      exit(-1);
-    }
-    unsigned points_num;
-    unsigned dim = (unsigned)atoi(argv[4]);
-    unsigned R = (unsigned)atoi(argv[5]);
-    real_size(argv[2], points_num, dim);
-    efanna2e::IndexNSG index(dim, points_num, efanna2e::L2, nullptr);
-    index.Load(argv[2]);
-    std::cout << "开始写反向图" << std::endl;
-    index.Write_reserve_graph(argv[3], R);
-    std::cout << "成功写反向图" << std::endl;
+    index.Search_write_disk(del_id, argv[2], paras);
     return 0;
   }
   else if(strcmp(argv[1], "compute_gt") == 0){
@@ -272,8 +254,6 @@ int main(int argc, char** argv) {
       index.prune_result(query_load + i * dim, R, aerfa, res, points_num + i, i, total_num, k_num);
     }
 
-    std::cout << "筛选结束" << std::endl;
-    // index.new_reverse(total_num, R, aerfa);
     index.com_degree();
     index.save_opt(argv[2], argv[10]);
     return 0;

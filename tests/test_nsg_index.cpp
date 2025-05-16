@@ -23,8 +23,8 @@ void load_data(char* filename, float*& data, unsigned& num,
   in.close();
 }
 int main(int argc, char** argv) {
-  if (argc != 11) {
-    std::cout << argv[0] << " data_file nn_graph_path L R C save_graph_file r k_num out_graph_file rever_graph_file"
+  if (argc != 10) {
+    std::cout << argv[0] << " data_file nn_graph_path L R C save_graph_file r k_num out_graph_file"
               << std::endl;
     exit(-1);
   }
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
   std::cout << "indexing time: " << diff.count() << "\n";
   // index.Save(argv[6]);
-  index.Save_part_point(argv[6], argv[9], argv[10]);
+  index.Save_part_point(argv[6], argv[9]);
 
   return 0;
 }

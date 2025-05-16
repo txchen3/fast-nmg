@@ -40,27 +40,9 @@ void IndexNSG::Save(const char *filename) {
   out.close();
 }
 
-void IndexNSG::Save_part_point(const char *filename, const char *in_graph_file, const char *rever_graph_file) {
+void IndexNSG::Save_part_point(const char *filename, const char *in_graph_file) {
   std::ofstream out(filename, std::ios::binary | std::ios::out);
   assert(final_graph_.size() == nd_);
-
-  std::vector<std::vector<unsigned>> nn_list(nd_); //反向图
-  for(unsigned i = 0; i < nd_; ++i){
-    for(unsigned j = 0; j < final_graph_[i].size(); ++j)
-      nn_list[final_graph_[i][j]].push_back(i);
-  }
-  std::ofstream reverse_graph(rever_graph_file, std::ios::binary | std::ios::out);
-  if (!reverse_graph.is_open()) {
-    std::cerr << "错误：无法打开文件 " << filename << std::endl;
-    exit(1);
-  }
-  for(unsigned i = 0; i < nd_; ++i){
-    unsigned temp = nn_list[i].size();
-    reverse_graph.write((char *)&temp, sizeof(unsigned));
-    nn_list[i].resize(width, -1);
-    reverse_graph.write((char *)nn_list[i].data(), width * sizeof(unsigned));
-  }
-	reverse_graph.close();
 
   DistanceFastL2 *dist_fast = (DistanceFastL2 *)distance_;
   out.write((char *)&width, sizeof(unsigned));
@@ -295,77 +277,6 @@ void IndexNSG::get_neighbors(const float *query, const Parameters &parameter,
       //   std::cout << neighbors[i] << ' ';
       // }
       // std::cout << std::endl;
-      for (unsigned m = 0; m < MaxM; ++m) {
-        unsigned id = neighbors[m];
-        if (flags[id]) continue;
-        flags[id] = 1;
-
-        float dist = distance_->compare(query, (float *)(opt_graph_ + node_size * id + 4),
-                    (unsigned)dimension_);
-        Neighbor nn(id, dist, true);
-        if (dist >= retset[L - 1].distance) continue;
-        int r = InsertIntoPool(retset.data(), L, nn);
-
-        if (L + 1 < retset.size()) ++L;
-        if (r < nk) nk = r;
-      }
-    }
-    if (nk <= k)
-      k = nk;
-    else
-      ++k;
-  }
-}
-
-void IndexNSG::get_search_path(const float *query,
-  boost::dynamic_bitset<> &flags,
-  std::vector<unsigned>& search_path) {
-  unsigned L = 100;
-
-  std::vector<Neighbor> retset;
-  retset.resize(L + 1);
-  std::vector<unsigned> init_ids(L);
-
-  L = 0;
-  unsigned *ep_neighbors = (unsigned *)(opt_graph_ + node_size * ep_ + data_len);
-  unsigned ep_MaxM = *ep_neighbors;
-  ep_neighbors++;
-  for (unsigned i = 0; i < init_ids.size() && i < ep_MaxM; i++) {
-    init_ids[i] = ep_neighbors[i];
-    flags[init_ids[i]] = true;
-    L++;
-  }
-  while (L < init_ids.size()) {
-    unsigned id = rand() % nd_;
-    if (flags[id]) continue;
-    init_ids[L] = id;
-    L++;
-    flags[id] = true;
-  }
-  L = 0;
-  for (unsigned i = 0; i < init_ids.size(); i++) {
-    unsigned id = init_ids[i];
-    if (id >= nd_) continue;
-    float dist = distance_->compare((float *)(opt_graph_ + node_size * id + 4), query,
-            (unsigned)dimension_);
-    retset[i] = Neighbor(id, dist, true);
-    // flags[id] = 1;
-    L++;
-  }
-
-  std::sort(retset.begin(), retset.begin() + L);
-  int k = 0;
-  while (k < (int)L) {
-    int nk = L;
-    if (retset[k].flag) {
-      retset[k].flag = false;
-      unsigned n = retset[k].id;
-      search_path.push_back(n);
-      if(search_path.size() >= 100)
-        return;
-      unsigned *neighbors = (unsigned *)(opt_graph_ + node_size * n + data_len);
-      unsigned MaxM = *neighbors;
-      neighbors++;
       for (unsigned m = 0; m < MaxM; ++m) {
         unsigned id = neighbors[m];
         if (flags[id]) continue;
@@ -1385,7 +1296,7 @@ void IndexNSG::Write_disk(unsigned R, const char *filename, const char *in_graph
   std::cout << "索引文件大小为" << af_dele_num * node_size + 8 << "字节" << std::endl;
 }
 
-void IndexNSG::Search_write_disk(unsigned del_id, const char *filename, const char *re_graph_file, efanna2e::Parameters paras){
+void IndexNSG::Search_write_disk(unsigned del_id, const char *filename, efanna2e::Parameters paras){
   unsigned R = paras.Get<unsigned>("R");
   float aerfa = paras.Get<unsigned>("aerfa");
   std::vector<std::vector<unsigned>> nn_list(nd_); //反向图
@@ -1500,31 +1411,6 @@ void IndexNSG::Search_write_disk(unsigned del_id, const char *filename, const ch
     (nd_ - del_id - 1) * node_size  // 要移动的字节数
   );
   nd_ = af_dele_num;
-}
-
-void IndexNSG::Write_reserve_graph(const char *filename, unsigned R){
-  std::vector<std::vector<unsigned>> nn_list(nd_); //反向图
-  for(unsigned i = 0; i < nd_; ++i){
-    unsigned *neighbors = (unsigned *)(opt_graph_ + node_size * i + data_len);
-    unsigned MaxM = *neighbors;
-    neighbors++;
-    for(unsigned j = 0; j < MaxM; ++j)
-      nn_list[neighbors[j]].push_back(i);
-  }
-  std::ofstream reverse_graph(filename, std::ios::binary | std::ios::out);
-  for(unsigned i = 0; i < nd_; ++i){
-    unsigned temp = nn_list[i].size();
-    reverse_graph.write((char *)&temp, sizeof(unsigned));
-    nn_list[i].resize(R, -1);
-    reverse_graph.write((char *)nn_list[i].data(), R * sizeof(unsigned));
-    // if(i == 0){
-    //   std::cout << temp << std::endl;
-    //   for(unsigned j = 0; j < temp; ++j){
-    //     std::cout << nn_list[i][j] << ' ';
-    //   }
-    //   std::cout << std::endl;
-    // }
-  }
 }
 
 void IndexNSG::prune_result(float* data, unsigned R, float aerfa, std::vector<unsigned>& res, unsigned add_node_id, unsigned resize, unsigned total_size, unsigned k_num){
@@ -1723,98 +1609,6 @@ bool IndexNSG::add_nebor(unsigned cur_id, unsigned new_id, unsigned R){
     return true;
   }
   return false;  //没有被插入
-}
-
-void IndexNSG::new_reverse(unsigned total_num, unsigned R, float aerfa){
-  std::vector<std::vector<SimpleNeighbor>> nn_list(nd_); //要进行筛选的节点集合
-  std::vector<std::mutex> locks(nd_);
-#pragma omp parallel
-  {
-    #pragma omp for schedule(dynamic, 2048)
-    for(unsigned j = nd_ - total_num; j < nd_; ++j){
-      unsigned *neighbors = (unsigned *)(opt_graph_ + node_size * j + data_len);
-      unsigned MaxM = *neighbors;
-      neighbors++;
-      for (size_t i = 0; i < MaxM; i++) {
-        size_t des = neighbors[i];  //当前邻居的编号
-        float djk = distance_->compare((float*)(opt_graph_ + node_size * (size_t)des + 4),
-                                        (float*)(opt_graph_ + node_size * (size_t)j + 4),
-                                        (unsigned)dimension_);   
-        {
-          LockGuard guard(locks[j]);
-          nn_list[j].push_back(SimpleNeighbor(des, djk));
-        }
-        {
-          LockGuard guard(locks[des]);
-          nn_list[des].push_back(SimpleNeighbor(j, djk));
-        }
-      }
-    }
-  }
-  std::cout << "nn_list" << std::endl;
-
-#pragma omp parallel
-  {
-    #pragma omp for schedule(dynamic, 2048)
-    for(unsigned i = 0; i < nd_; ++i){
-      if(nn_list[i].size() == 0)
-        continue;
-      std::sort(nn_list[i].begin(), nn_list[i].end());
-      std::vector<SimpleNeighbor> result;
-      unsigned *neighbors = (unsigned *)(opt_graph_ + node_size * i + data_len);
-      unsigned *change_M = (unsigned *)(opt_graph_ + node_size * i + data_len);
-      unsigned MaxM = *neighbors;
-      neighbors++;
-      unsigned start = 0;
-      if (nn_list[i][start].id == i) start++;
-
-      for(unsigned j = 0; j < MaxM; ++j){
-        float djk = distance_->compare((float*)(opt_graph_ + node_size * (size_t)i + 4),
-                                        (float*)(opt_graph_ + node_size * (size_t)neighbors[j] + 4),
-                                        (unsigned)dimension_);
-        // if(djk <= nn_list[i][start].distance){
-        //   result.push_back(SimpleNeighbor(neighbors[j], djk));
-        // }
-        // else
-        nn_list[i].push_back(SimpleNeighbor(neighbors[j], djk));
-      }
-      std::sort(nn_list[i].begin(), nn_list[i].end());
-      if (nn_list[i][start].id == i) start++;
-      result.push_back(nn_list[i][start]);
-      while (result.size() < R && (++start) < nn_list[i].size()) {
-        auto &p = nn_list[i][start]; //第二邻居
-        bool occlude = false;
-        for (unsigned t = 0; t < result.size(); t++) {
-          if (p.id == result[t].id) {
-            occlude = true;
-            break;
-          }
-          float djk = distance_->compare((float*)(opt_graph_ + node_size * (size_t)result[t].id + 4),
-                                        (float*)(opt_graph_ + node_size * (size_t)p.id + 4),
-                                        (unsigned)dimension_);
-          if ( djk < p.distance /* dik */) {
-            float ratio = (p.distance/djk - 1) * p.distance/result[t].distance;
-            if(ratio > aerfa){
-              occlude = true;
-              break;
-            }
-          }
-        }
-        if (!occlude) result.push_back(p);
-      }
-
-      {
-        LockGuard guard(locks[i]);
-        size_t t = 0;
-        for (size_t tt = 0; tt < result.size() && t < R; tt++) {
-          neighbors[t] = result[tt].id;
-          t++;
-        }
-        change_M[0] = t;
-      }
-    }
-  }
-  std::cout << "prune" << std::endl;
 }
 
 void IndexNSG::Compute_gt(const float *query_load, const char *gt_file, unsigned K, unsigned query_num){

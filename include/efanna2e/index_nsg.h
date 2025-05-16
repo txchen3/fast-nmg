@@ -41,22 +41,17 @@ class IndexNSG : public Index {
       int& com_num);
   void OptimizeGraph(float* data);
   float eval_recall(std::vector<std::vector<unsigned> > query_res, std::vector<std::vector<int> > gts, int K);
-  void Save_part_point(const char *filename, const char *in_graph_file, const char *rever_graph_file);
+  void Save_part_point(const char *filename, const char *in_graph_file);
   void Load_part_point(const char *filename, const char *in_graph_file);
   std::vector<std::vector<int> > load_ground_truth(const char* filename, unsigned k);
   void Write_disk(unsigned R, const char *filename, const char *in_graph_file, float aerfa);
-  void Write_reserve_graph(const char *filename, unsigned R);
-  void Search_write_disk(unsigned del_id, const char *filename, const char *re_graph_file, efanna2e::Parameters paras);
+  void Search_write_disk(unsigned del_id, const char *filename, efanna2e::Parameters paras);
   void prune_result(float* data, unsigned R, float aerfa, std::vector<unsigned>& res, unsigned add_node_id, unsigned resize, unsigned total_size, unsigned k_num);
   void save_opt(const char *filename, const char *in_graph);
   void com_degree();
   bool add_nebor(unsigned cur_id, unsigned new_id, unsigned R);
   void Compute_gt(const float *query_load, const char *gt_file, unsigned K, unsigned query_num);
   void my_realloc(unsigned total_size);
-  void new_reverse(unsigned total_num, unsigned R, float aerfa);
-  void get_search_path(const float *query,
-        boost::dynamic_bitset<> &flags,
-        std::vector<unsigned>& search_path);
   unsigned* in_graph_ = NULL;
 
   protected:
