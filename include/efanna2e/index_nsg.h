@@ -88,6 +88,7 @@ class IndexNSG : public Index {
     void InterInsert(unsigned range, std::vector<std::mutex>& locks, SimpleNeighbor* cut_graph_, const Parameters &parameter);
     unsigned sync_prune(unsigned q, std::vector<Neighbor> pool, const Parameters &parameter, boost::dynamic_bitset<>& flags, SimpleNeighbor* cut_graph_, std::vector<Neighbor> path_node, std::vector<std::mutex> &locks);
     void Link(const Parameters &parameters, SimpleNeighbor* cut_graph_);
+    unsigned my_Link(const Parameters &parameters, SimpleNeighbor* cut_graph_, size_t test_nd);
     void Load_nn_graph(const char *filename);
     void tree_grow(const Parameters &parameter);
     void DFS(boost::dynamic_bitset<> &flag, unsigned root, unsigned &cnt);
@@ -98,6 +99,7 @@ class IndexNSG : public Index {
   private:
     unsigned width;
     unsigned ep_;
+    float ratio;
     std::vector<std::mutex> locks;
     char* opt_graph_;
     size_t node_size;
