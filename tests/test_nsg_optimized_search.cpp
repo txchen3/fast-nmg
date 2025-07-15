@@ -52,12 +52,16 @@ void real_size(char* filename, unsigned& num, unsigned dim) {
   std::cout << "open file error" << std::endl;
   exit(-1);
   }
-  unsigned temp;
+  unsigned width, temp;
+  in.read((char *)&width, sizeof(unsigned));
   in.read((char *)&temp, sizeof(unsigned));
+  unsigned data_pad, nei_pad;
+  in.read((char *)&data_pad, sizeof(unsigned));
+  in.read((char *)&nei_pad, sizeof(unsigned));
   in.seekg(0, std::ios::end);
   std::ios::pos_type ss = in.tellg();
   size_t fsize = (size_t)ss;
-  size_t node_size = sizeof(float) + dim * sizeof(float) + sizeof(unsigned) + temp * sizeof(unsigned); 
+  size_t node_size = (dim + data_pad) * sizeof(float) + sizeof(unsigned) + (width + nei_pad) * sizeof(unsigned); 
   num = (unsigned)(fsize / node_size);
   in.close();
 }
@@ -77,6 +81,7 @@ void save_result(const char* filename,
 std::vector<std::vector<int> > load_ground_truth(const char* filename) {
     std::ifstream in(filename, std::ios::binary);
     if (!in.is_open()) {
+        std::cout << "尝试打开文件: " << filename << std::endl;
         std::cout << "open file error (in load_ground_truth)" << std::endl;
         exit(-1);
     }
@@ -121,6 +126,16 @@ void Delete_id(char* filename, unsigned& start_id, unsigned& end_id){
   for(unsigned i = start_id; i < end_id; ++i)
     file.write(reinterpret_cast<char*>(&zero), sizeof(unsigned));
   // std::cout << "成功标记节点" << move_id << "为删除" << std::endl;
+  // file.seekp(0);
+  // char* buffer = new char[1000000 * sizeof(unsigned)];
+  // file.read(buffer, 1000000 * sizeof(unsigned));
+  // unsigned* data = reinterpret_cast<unsigned*>(buffer); // 后续使用data
+  // unsigned totalde = 0;
+  // for(unsigned i = 0; i < 1000000; ++i){
+  //   if(data[i] == 0)
+  //     totalde ++;
+  // }
+  // std::cout << "已有删除点数为：" << totalde << std::endl;
   file.close();
 }
 
@@ -148,6 +163,7 @@ int main(int argc, char** argv) {
     }
     unsigned start_id = (unsigned)atoi(argv[3]);
     unsigned end_id = (unsigned)atoi(argv[4]);
+    std::cout << end_id << std::endl;
     Delete_id(argv[2], start_id, end_id);
     return 0;
   }
@@ -164,6 +180,7 @@ int main(int argc, char** argv) {
     unsigned points_num;
     real_size(argv[2], points_num, dim);
     efanna2e::IndexNSG index(dim, points_num, efanna2e::L2, nullptr);
+    std::cout << "in_graph_file: " << argv[3] << std::endl;
     index.Load_part_point(argv[2], argv[3]);
     index.Write_disk(R, argv[2], argv[3], aerfa);
     index.com_degree();

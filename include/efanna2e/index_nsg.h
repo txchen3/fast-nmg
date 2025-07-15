@@ -100,6 +100,8 @@ class IndexNSG : public Index {
     unsigned width;
     unsigned ep_;
     float ratio;
+    unsigned data_padding;
+    unsigned neighbor_padding;
     std::vector<std::mutex> locks;
     char* opt_graph_;
     size_t node_size;

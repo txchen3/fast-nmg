@@ -9,7 +9,7 @@ k_num=5
 C=$((R * 2))
 
 
-# tests/test_nsg_index "/data/crawl/data.fvecs" "../../index/crawl.knng" $R $R $C test1.nsg $aerfa 5 ingraph1.bin reverse_graph
+# tests/test_nsg_index "/data/crawl/data.fvecs" "../../index/crawl.knng" $R $R $C test1.nsg $aerfa 5 ingraph1.bin
 # echo "增删前搜索性能："
 # for i in {100..200..10}; do
 #     tests/test_nsg_optimized_search search "/data/crawl/query.fvecs" test1.nsg $i 100 result.ivecs "/data/crawl/true.ivecs" 0 ingraph1.bin
