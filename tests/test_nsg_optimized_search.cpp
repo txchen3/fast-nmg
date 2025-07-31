@@ -264,13 +264,20 @@ int main(int argc, char** argv) {
     index.my_realloc(total_num + points_num);
     float* query_load = NULL;
     load_id(argv[3], query_load, query_dim, offset, total_num);
-    std::vector<std::mutex> locks(total_num + points_num);
-    for(unsigned i = 0; i < total_num; i++){
-      std::vector<unsigned> res(L);
-      index.SearchWithOptGraph(query_load + i * dim, L, paras, res.data(), com_num);
-      index.prune_result(query_load + i * dim, R, aerfa, res, points_num + i, i, total_num, k_num);
-    }
 
+    std::vector<std::vector<unsigned>> res(total_num);
+    #pragma omp parallel
+    {
+      #pragma omp for schedule(dynamic, 2048)
+        for(unsigned i = 0; i < total_num; i++){
+          res[i].resize(L);
+          index.SearchWithOptGraph(query_load + i * dim, L, paras, res[i].data(), com_num);
+          
+        }
+    }
+    for(unsigned i = 0; i < total_num; i++){
+      index.prune_result(query_load + i * dim, R, aerfa, res[i], points_num + i, i, total_num, k_num);
+    }
     index.com_degree();
     index.save_opt(argv[2], argv[10]);
     return 0;

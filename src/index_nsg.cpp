@@ -713,31 +713,8 @@ void IndexNSG::Build(size_t n, const float *data, const Parameters &parameters) 
   data_ = data;
   init_graph(parameters);
 
-  // ratio = 1;
-  // size_t test_nd = nd_/100;
-  // if(test_nd > 10000)
-  //   test_nd = 10000;
-  // SimpleNeighbor *test_cut_graph_ = new SimpleNeighbor[test_nd * (size_t)range];
-  // for (size_t i = 0; i < test_nd; i++) {
-  //   test_cut_graph_[i*range].distance = -1;
-  // }
-  // unsigned max_r = my_Link(parameters, test_cut_graph_, test_nd);
-
-  // ratio = 0;
-  // for (size_t i = 0; i < test_nd; i++) {
-  //   test_cut_graph_[i*range].distance = -1;
-  // }
-  // unsigned min_r = my_Link(parameters, test_cut_graph_, test_nd);
-
-  // ratio = (range * 0.35 - min_r) / (max_r - min_r);
-  // if(ratio > 1)
-  //   ratio = 1;
-  // else if(ratio < 0.25)
-  //   ratio = 0.25;
-  // // ratio = 1;
-  // std::cout << "ratio = " << ratio << std::endl;
-
   std::vector<std::mutex> locks(nd_);
+  std::cout << "nd_ * (size_t)range:" << nd_ * (size_t)range << std::endl;
   SimpleNeighbor *cut_graph_ = new SimpleNeighbor[nd_ * (size_t)range];
   for (size_t i = 0; i < nd_; i++) {
     cut_graph_[i*range].distance = -1;
@@ -998,6 +975,10 @@ void IndexNSG::SearchWithOptGraph(const float *query, size_t K,
     if(cur_kk == K)
       break;
   }
+}
+
+void IndexNSG::set_nd(unsigned target){
+  nd_ = target;
 }
 
 void IndexNSG::OptimizeGraph(float *data) {  // use after build or load
@@ -1527,6 +1508,15 @@ void IndexNSG::prune_result(float* data, unsigned R, float aerfa, std::vector<un
     res_id.push_back(result[i].id);
   }
 
+  unsigned GK = (unsigned)res_id.size();
+  res_id.resize(R, -1);
+  memcpy(opt_graph_ + add_node_id * node_size, data, dimension_ * sizeof(float));
+  memcpy(opt_graph_ + add_node_id * node_size + data_len, &GK, sizeof(unsigned));
+  memcpy(opt_graph_ + add_node_id * node_size + data_len + 4, res_id.data(), R * sizeof(unsigned));
+  nd_ ++;
+  
+  // return;
+
   //插入反向边
 
   for(unsigned i = 0; i < result.size(); ++i){
@@ -1558,7 +1548,7 @@ void IndexNSG::prune_result(float* data, unsigned R, float aerfa, std::vector<un
           cur_result.push_back(pool[start]);
           continue;
         }
-        float ratio1 = float(R - result.size()) / R;
+        float ratio1 = float(R - cur_result.size()) / R;
         auto &p = pool[start]; //第二邻居
         bool occlude = false;
         for (unsigned t = 0; t < cur_result.size(); t++) {
@@ -1570,7 +1560,7 @@ void IndexNSG::prune_result(float* data, unsigned R, float aerfa, std::vector<un
                                         (float*)(opt_graph_ + node_size * (size_t)p.id),
                                         (unsigned)dimension_);   
           if ( djk < p.distance /* dik */) {
-            if(p.distance * p.distance > djk * djk + ratio1 * djk * result[t].distance){  //c² > a² + ab
+            if(p.distance * p.distance > djk * djk + ratio1 * djk * cur_result[t].distance){  //c² > a² + ab
               if(p.id == add_node_id && add_nebor(cur_result[t].id, add_node_id, R)){  //如果被遮挡了，则将新节点插入遮挡点的邻居
                 occlude = true;
                 break;
@@ -1597,12 +1587,75 @@ void IndexNSG::prune_result(float* data, unsigned R, float aerfa, std::vector<un
     }
   }
 
-  unsigned GK = (unsigned)res_id.size();
-  res_id.resize(R, -1);
-  memcpy(opt_graph_ + add_node_id * node_size, data, dimension_ * sizeof(float));
-  memcpy(opt_graph_ + add_node_id * node_size + data_len, &GK, sizeof(unsigned));
-  memcpy(opt_graph_ + add_node_id * node_size + data_len + 4, res_id.data(), R * sizeof(unsigned));
-  nd_ ++;
+}
+
+void IndexNSG::add_inter(float* data, unsigned R, std::vector<unsigned>& res, unsigned add_node_id){
+  std::vector<Neighbor> pool;
+  for(unsigned i = 0; i < res.size(); ++i){
+    size_t cur_id = res[i];  //当前点id
+    unsigned *neighbors = (unsigned *)(opt_graph_ + node_size * cur_id + data_len);
+    unsigned *change_M = (unsigned *)(opt_graph_ + node_size * cur_id + data_len);
+    unsigned MaxM = *neighbors;
+    neighbors++;
+    if(MaxM < R){
+      neighbors[MaxM] = add_node_id;
+      change_M[0] ++;
+    }
+    else{
+      for (unsigned nn = 0; nn < MaxM; nn++) {
+        unsigned id = neighbors[nn];  //邻居id
+        float dist =
+            distance_->compare( (float*)(opt_graph_ + node_size * cur_id),
+            (float*)(opt_graph_ + node_size * id), (unsigned)dimension_);
+        pool.push_back(Neighbor(id, dist, true));
+      }
+      float res_dist =
+            distance_->compare( (float*)(opt_graph_ + node_size * cur_id),
+            (float*)data, (unsigned)dimension_);
+      pool.push_back(Neighbor(add_node_id, res_dist, true));
+      std::sort(pool.begin(), pool.end());
+      std::vector<Neighbor> cur_result;
+      unsigned start = 0;
+      cur_result.push_back(pool[start]);
+      while (cur_result.size() < R && (++start) < pool.size()) {
+        float ratio1 = float(R - cur_result.size()) / R;
+        auto &p = pool[start]; //第二邻居
+        bool occlude = false;
+        for (unsigned t = 0; t < cur_result.size(); t++) {
+          if (p.id == cur_result[t].id) {
+            occlude = true;
+            break;
+          }
+          float djk = distance_->compare((float*)(opt_graph_ + node_size * (size_t)cur_result[t].id),
+                                        (float*)(opt_graph_ + node_size * (size_t)p.id),
+                                        (unsigned)dimension_);   
+          if ( djk < p.distance /* dik */) {
+            if(p.distance * p.distance > djk * djk + ratio1 * djk * cur_result[t].distance){  //c² > a² + ab
+              if(p.id == add_node_id && add_nebor(cur_result[t].id, add_node_id, R)){  //如果被遮挡了，则将新节点插入遮挡点的邻居
+                occlude = true;
+                break;
+              }
+              if(cur_result[t].id == add_node_id){  //如果新节点未被遮挡，则将被遮挡的原节点插入新节点邻居中
+                for(unsigned ri = 0; ri < res.size(); ++ri){
+                  if(p.id == res[ri]){
+                    occlude = true;
+                    break;
+                  }
+                }
+              }
+              if(occlude)
+                break;
+            }
+          }
+        }
+        if (!occlude) cur_result.push_back(p);
+      }
+      change_M[0] = cur_result.size();
+      for(unsigned nn = 0; nn < change_M[0]; ++nn){
+        neighbors[nn] = cur_result[nn].id;
+      }
+    }
+  }
 }
 
 void IndexNSG::save_opt(const char *filename, const char *in_graph){

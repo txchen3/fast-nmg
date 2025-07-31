@@ -47,11 +47,13 @@ class IndexNSG : public Index {
   void Write_disk(unsigned R, const char *filename, const char *in_graph_file, float aerfa);
   void Search_write_disk(unsigned del_id, const char *filename, efanna2e::Parameters paras);
   void prune_result(float* data, unsigned R, float aerfa, std::vector<unsigned>& res, unsigned add_node_id, unsigned resize, unsigned total_size, unsigned k_num);
+  void add_inter(float* data, unsigned R, std::vector<unsigned>& res, unsigned add_node_id);
   void save_opt(const char *filename, const char *in_graph);
   void com_degree();
   bool add_nebor(unsigned cur_id, unsigned new_id, unsigned R);
   void Compute_gt(const float *query_load, const char *gt_file, unsigned K, unsigned query_num);
   void my_realloc(unsigned total_size);
+  void set_nd(unsigned target);
   unsigned* in_graph_ = NULL;
 
   protected:

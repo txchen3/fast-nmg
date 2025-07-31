@@ -1,27 +1,30 @@
 #include <efanna2e/index_nsg.h>
 #include <efanna2e/util.h>
 
-void load_data(char* filename, float*& data, unsigned& num,
-               unsigned& dim) {  // load data with sift10K pattern
+void load_data(char* filename, float*& data, unsigned& num,unsigned& dim){// load data with sift10K pattern
   std::ifstream in(filename, std::ios::binary);
-  if (!in.is_open()) {
-    std::cout << "open file error" << std::endl;
-    exit(-1);
-  }
-  in.read((char*)&dim, 4);
-  in.seekg(0, std::ios::end);
+  if(!in.is_open()){std::cout<<"open file error"<<std::endl;exit(-1);}
+  in.read((char*)&dim,4);
+  std::cout<<"data dimension: "<<dim<<std::endl;
+  in.seekg(0,std::ios::end);
   std::ios::pos_type ss = in.tellg();
   size_t fsize = (size_t)ss;
-  num = (unsigned)(fsize / (dim + 1) / 4);
-  data = new float[(size_t)num * (size_t)dim];
+  num = (unsigned)(fsize / (dim+1) / 4);
+  std::cout << "num: " << num << std::endl;
+  long float_size = (long)num * dim;
+  data = new (std::nothrow) float[float_size];
+  std::cout << "理论分配: " 
+          << float_size * 4 / (1024.0 * 1024 * 1024) 
+          << " GB" << std::endl;
 
-  in.seekg(0, std::ios::beg);
-  for (size_t i = 0; i < num; i++) {
-    in.seekg(4, std::ios::cur);
-    in.read((char*)(data + i * dim), dim * 4);
+  in.seekg(0,std::ios::beg);
+  for(size_t i = 0; i < num; i++){
+    in.seekg(4,std::ios::cur);
+    in.read((char*)(data+i*dim),dim*4);
   }
   in.close();
 }
+
 int main(int argc, char** argv) {
   if (argc != 10) {
     std::cout << argv[0] << " data_file nn_graph_path L R C save_graph_file r k_num out_graph_file"
@@ -31,6 +34,7 @@ int main(int argc, char** argv) {
   float* data_load = NULL;
   unsigned points_num, dim;
   load_data(argv[1], data_load, points_num, dim);
+  std::cout << "数据加载成功" << std::endl;
 
   std::string nn_graph_path(argv[2]);
   unsigned L = (unsigned)atoi(argv[3]);
