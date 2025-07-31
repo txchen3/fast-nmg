@@ -26,7 +26,7 @@ $ make -j
 具体示例：
 构建索引：
 ```shell
-$ tests/test_nsg_index /data/sift/data.fvecs ../../index/sift.knng 40 50 100 test.nsg 0.23 0 ingraph.bin
+$ tests/test_nsg_index /data/sift/data.fvecs ../../index/sift.knng 50 50 100 test.nsg 0.23 0 ingraph.bin
 ```
 
 标记数据集中编号为0-9999的节点为删除：
@@ -41,7 +41,7 @@ $ tests/test_nsg_optimized_search write_disk test.nsg ingraph.bin true.ivecs 128
 
 这是一个对比方法，将索引中前10000个节点从索引中删除：
 ```shell
-$ tests/test_nsg_optimized_search global_del test.nsg 10000 true.ivecs 128 50 0.21
+$ tests/test_nsg_optimized_search global_del test.nsg 10000 true.ivecs 128 50 0.23
 ```
 
 计算现有数据的精确top100：
@@ -56,6 +56,6 @@ $ tests/test_nsg_optimized_search search /data/sift/query.fvecs test.nsg 100 100
 
 添加节点：
 ```shell
-$ tests/test_nsg_optimized_search add_node test.nsg /data/sift/data.fvecs 10000 50 0.23 128 0 5 ingraph.bin
+$ tests/test_nsg_optimized_search add_node test.nsg /data/sift/data.fvecs 10000 50 0.23 128 0 0 ingraph.bin
 ```
 
